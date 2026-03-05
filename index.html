@@ -107,7 +107,8 @@
       display:flex; flex-direction:column; background:var(--navy-dark);
       transition:filter 0.22s ease; }
     /* FREE only: blur the content */
-    #protected-content.blur-free { filter:blur(22px) brightness(0.3) saturate(0.4); }
+    #protected-content.blur-free  { filter:blur(22px) brightness(0.3) saturate(0.4); transition:filter 0.22s ease; }
+    #protected-content.lock-black  { filter:brightness(0); transition:filter 0.06s ease; }
 
     .status-bar { display:flex; align-items:center; justify-content:space-between;
       padding:54px 20px 14px;
@@ -210,6 +211,39 @@
       font-size:14px; font-weight:700; cursor:pointer; box-shadow:0 6px 20px rgba(46,196,138,0.3); }
     .upsell-dismiss { background:none; border:none; color:var(--muted);
       font-size:11px; cursor:pointer; margin-top:10px; padding:6px; }
+
+    /* ── Settings button ── */
+    .btn-settings { background:rgba(91,159,255,0.1); border:1px solid rgba(91,159,255,0.25);
+      color:var(--blue-light); border-radius:20px; padding:7px 12px;
+      font-size:14px; cursor:pointer; }
+
+    /* ── Settings panel ── */
+    #settings-panel { position:fixed; inset:0; z-index:300;
+      display:flex; align-items:flex-end; justify-content:center;
+      opacity:0; pointer-events:none; transition:opacity 0.25s ease; }
+    #settings-panel.open { opacity:1; pointer-events:all; }
+    .settings-backdrop { position:absolute; inset:0; background:rgba(8,15,26,0.7); backdrop-filter:blur(6px); }
+    .settings-sheet { position:relative; z-index:2; background:var(--navy-mid);
+      border:1px solid var(--navy-light); border-radius:24px 24px 0 0;
+      width:100%; max-width:480px; padding:24px 24px 40px; }
+    .settings-handle { width:40px; height:4px; background:var(--navy-light);
+      border-radius:2px; margin:0 auto 20px; }
+    .settings-title { font-size:16px; font-weight:800; color:var(--white); margin-bottom:20px; }
+    .settings-section { margin-bottom:20px; }
+    .settings-label { font-size:10px; font-weight:700; letter-spacing:2px;
+      text-transform:uppercase; color:var(--muted); margin-bottom:12px; }
+    .protection-options { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+    .protection-opt { border-radius:14px; padding:16px 14px; border:1px solid var(--navy-light);
+      background:var(--navy-dark); cursor:pointer; transition:border-color 0.2s, background 0.2s;
+      text-align:center; }
+    .protection-opt.selected { border-color:var(--blue-light); background:rgba(91,159,255,0.08); }
+    .protection-opt-icon { font-size:24px; margin-bottom:8px; }
+    .protection-opt-name { font-size:13px; font-weight:700; color:var(--white); margin-bottom:4px; }
+    .protection-opt-desc { font-size:11px; color:var(--muted); line-height:1.4; }
+    .protection-opt.selected .protection-opt-name { color:var(--blue-light); }
+    .settings-close { width:100%; margin-top:16px; background:var(--blue);
+      color:white; border:none; border-radius:12px; padding:14px;
+      font-size:14px; font-weight:700; cursor:pointer; }
 
     /* ── Face pill ── */
     .face-pill { position:fixed; bottom:28px; left:50%; transform:translateX(-50%);
@@ -348,6 +382,7 @@
         <span class="free-label" id="free-label">Watching…</span>
       </div>
 
+      <button class="btn-settings" id="btn-settings">⚙</button>
       <button class="btn-stop" id="btn-stop">Stop</button>
     </div>
 
@@ -426,6 +461,31 @@
   </div>
 </div>
 
+<!-- SETTINGS PANEL -->
+<div id="settings-panel">
+  <div class="settings-backdrop" id="settings-backdrop"></div>
+  <div class="settings-sheet">
+    <div class="settings-handle"></div>
+    <div class="settings-title">⚙ Protection Settings</div>
+    <div class="settings-section">
+      <div class="settings-label">Protection Style</div>
+      <div class="protection-options">
+        <div class="protection-opt selected" id="opt-blur" onclick="setProtectionMode('blur')">
+          <div class="protection-opt-icon">🌫️</div>
+          <div class="protection-opt-name">Blur</div>
+          <div class="protection-opt-desc">Screen smoothly blurs when threat detected</div>
+        </div>
+        <div class="protection-opt" id="opt-black" onclick="setProtectionMode('black')">
+          <div class="protection-opt-icon">⬛</div>
+          <div class="protection-opt-name">Black Screen</div>
+          <div class="protection-opt-desc">Screen instantly goes dark — no traces</div>
+        </div>
+      </div>
+    </div>
+    <button class="settings-close" onclick="closeSettings()">Done</button>
+  </div>
+</div>
+
 <script>
   const $ = id => document.getElementById(id);
   const allScreens = ['welcome','auth','loading','protect','denied'];
@@ -444,6 +504,23 @@
 
   let currentUser = getSession();
   let isPro = !!currentUser;
+  let protectionMode = localStorage.getItem('gl_mode') || 'blur'; // 'blur' or 'black'
+
+  function setProtectionMode(mode) {
+    protectionMode = mode;
+    localStorage.setItem('gl_mode', mode);
+    $('opt-blur').classList.toggle('selected', mode === 'blur');
+    $('opt-black').classList.toggle('selected', mode === 'black');
+  }
+  // Init selection UI
+  setProtectionMode(protectionMode);
+
+  function openSettings() {
+    $('settings-panel').classList.add('open');
+  }
+  function closeSettings() {
+    $('settings-panel').classList.remove('open');
+  }
 
   // ── Welcome ───────────────────────────────────────────────────────
   $('btn-start-free').onclick = () => { isPro=false; currentUser=null; startProtection(); };
@@ -563,24 +640,25 @@
 
   function onThreat(n) {
     locked = true;
-    if (navigator.vibrate) navigator.vibrate(isPro ? [60] : [100,50,100]);
+    if (navigator.vibrate) navigator.vibrate([80, 40, 80]);
+
+    // Apply protection based on user's chosen mode
+    if (protectionMode === 'black') {
+      $('protected-content').classList.add('lock-black');
+    } else {
+      $('protected-content').classList.add('blur-free');
+    }
 
     if (isPro) {
-      // ── PRO: content untouched, tiny shield pulses + silent toast ──
+      // PRO: blur + silent shield indicator + toast, NO upsell ever
       const shield = $('pro-shield');
-      const dot    = $('shield-dot');
-      const label  = $('shield-label');
       shield.classList.add('threat');
-      dot.classList.add('active');
-      label.textContent = 'Bystander near';
-
-      // Show silent toast at bottom — non-blocking
+      $('shield-dot').classList.add('active');
+      $('shield-label').textContent = 'Bystander near';
       $('toast-count').textContent = n-1 > 1 ? `(${n-1} people)` : '';
       showToast();
-
     } else {
-      // ── FREE: blur screen + show upsell ──
-      $('protected-content').classList.add('blur-free');
+      // FREE: blur + upsell popup after short delay
       $('free-dot').classList.add('warn');
       $('free-label').textContent = 'Threat!';
       setTimeout(() => {
@@ -593,15 +671,15 @@
     locked = false;
     if (navigator.vibrate) navigator.vibrate(35);
 
+    // Remove protection
+    $('protected-content').classList.remove('blur-free', 'lock-black');
+
     if (isPro) {
-      // ── PRO: shield quietly returns to normal ──
       $('pro-shield').classList.remove('threat');
       $('shield-dot').classList.remove('active');
       $('shield-label').textContent = 'Protected';
       hideToast();
     } else {
-      // ── FREE: unblur ──
-      $('protected-content').classList.remove('blur-free');
       $('free-dot').classList.remove('warn');
       $('free-label').textContent = 'Watching…';
       $('overlay-free').classList.remove('active');
@@ -626,6 +704,8 @@
     show('welcome');
   }
   $('btn-stop').onclick = stopAll;
+  $('btn-settings').onclick = openSettings;
+  $('settings-backdrop').onclick = closeSettings;
 
   // ── Upsell ────────────────────────────────────────────────────────
   $('btn-upsell-upgrade').onclick = () => { stopAll(); setAuthMode('register'); show('auth'); };
