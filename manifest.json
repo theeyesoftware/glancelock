@@ -1,0 +1,27 @@
+{
+  "name": "GlanceLock — Visual Privacy",
+  "short_name": "GlanceLock",
+  "description": "Real-time shoulder-surfing protection. Your screen blurs instantly when someone looks over your shoulder.",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#080F1A",
+  "theme_color": "#080F1A",
+  "icons": [
+    {
+      "src": "icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "utilities"],
+  "screenshots": [],
+  "related_applications": []
+}
